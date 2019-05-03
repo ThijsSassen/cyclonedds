@@ -39,18 +39,10 @@ env:
    #   via the "travis encrypt" command using the project repo's public key
    - secure: "Uy4gh/BjkU8rPgpmWRwDXAzxtGR74cGgeLvDwR0s7OHHCyG8eFNv0h5ZO76fjJv4aPWs11j4IlrOzWtAtrqBmGQNYtycn7j6BgFqX/W5NkgfVTx9w5FKOvqmbUCYcBnAwvHQ4LNxaS47VOkr1/r0h6HzTCB0nXrDRdRSe6pfaGyFeRCRmZCIunDVACwHx6sKiCRVcEKDAgZXM7eQY1fUEtY+1RLTcKm5NCOVzSQP4mNoum4tWVomOamm9yxcmJ97598tza0kzIJJdS8jPqKT+9nnBlqC2g/+pIQcIrPLM4Thf/I4FcVb62IyHFvIjPutyuQ8jkf6bkh+RIctzRsE3ZU2OCb6lJiXjc2YAwAphZ6ucQb2jKM9HSugSu7A5W36DZaWiVcShnok87r3pmuzX4gmXL4PzxjAaUOMe0MuPKhnUqL/F8WjM7bMEena5XzsII5tVdbUbBAvZkd+eclarQhySxqV9Ga4BkGnyXwYtcsXFxadtCoINbpY8UoxAdSAPK8n561Fyz5WLZ04N2gLq/lQHiv1Y47i6fZ8eAdhFz20ySu21P1dQnSl4reoWLbvUwtsB4hxBBp5+vos1wPsD5rAxYIUcz6m6OwyyCDu7nYkIxK1HsepwE4bdIMltT46Q1l4mt2LuRai5fyuXQ+kkPQcqZY/Pk7HYknlfv8cdoE="
 
-addons:
-  coverity_scan:
-    project:
-      name: "ThijsSassen/cyclonedds"
-      description: "Cyclonedds IoT project"
-    notification_email: thijs.sassen@adlinktech.com
-    build_command_prepend: "mkdir build && cd build && cmake ../src"
-    build_command: "cmake --build ."
-    branch_pattern: coverity_scan
-
 matrix:
   include:
+    - <<: *linux_gcc8
+      env: [ BUILD_TYPE=Release, C_COMPILER=gcc-8, CXX_COMPILER=g++-8, USE_SANITIZER=none, COVERITY_SCAN_PROJECT_NAME="$TRAVIS_REPO_SLUG", COVERITY_SCAN_BRANCH_PATTERN="coverity_scan", COVERITY_SCAN_NOTIFICATION_EMAIL="thijs.sassen@adlinktech.com", COVERITY_SCAN_BUILD_COMMAND="mkdir build && cd build && cmake ../src && cmake --build ."]
     - <<: *linux_gcc8
       env: [ BUILD_TYPE=Debug, C_COMPILER=gcc-8, CXX_COMPILER=g++-8, USE_SANITIZER=none ]
     - <<: *linux_gcc8
@@ -127,14 +119,10 @@ before_script:
   - export
 
 script:
-  - if [[ "${COVERITY_SCAN_BRANCH}" == 1 ]];
-      then
-        echo "Don't build on coverty_scan branch.";
-        exit 0;
-    fi
   - mkdir build
   - cd build
   - conan install -b missing -s arch=${ARCH} -s build_type=${BUILD_TYPE} ..
+  - if [[ -n $COVERITY_SCAN_PROJECT_NAME ]] ; then curl -s 'https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh' | bash || true ; fi
   - cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
           -DCMAKE_INSTALL_PREFIX=$(pwd)/install
           -DUSE_SANITIZER=${USE_SANITIZER}
