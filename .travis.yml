@@ -32,17 +32,19 @@ osx_xcode10_1: &osx_xcode10_1
 
 windows_vs2017: &windows_vs2017
   os: windows
+  
+stages:
+    # Run Coverity only on a branch called coverity_scan
+    - name: Coverity
+      if: branch = coverity_scan
+    - name: Build & Test
+      if: branch != coverity_scan
 
-env:
-  global:
-   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
-   #   via the "travis encrypt" command using the project repo's public key
-   - secure: "LT9qq6l6IPkJkxqYS3WiF6NEGkpR+BdhoUnt5o5LQN52bIt7KBHhvqVJctgG7OsOhO8uq2nblFSxWg2WMwS0ho6Uv+W2eluvucNTh7H7d6bfmn4uSguTynTv+bzUWakHghMHgJmBfdHIQd6JbrKvfSIs/nFdJrwWJFxm8tVkb7ckwsfjENhVU7FuTCQuLfAQtqvjkA1a/YzDYqofRKEP6lQdOx/Ensp7seYhUBaUy6VVxDNVhW5LAU7It91GroWyJsmPa8ddVTqm9Ygij3+u4miLbvNZh05XGeXNZdSU/4ahu2oDUdVP0HVl7RZJzT1IfWdEgBujkFCiuKk915R+h6SXnNP77HULvbr84Tm3zycNadUWy3b1ANsPFkOdc3ONdT/hSsMwEcjCg+09aIKlR8weg8K088NxBnsxnifPyNBuz3tHO1I78GygbV4/BAMFpuKcHhppzXxbrxAnpfDhp3KiXH59e1soINH4eenMMVm7SlYneF7Vg+/gCcnuqNTHuWB6HbZrTXLzXIRvfJ41WZr0zNc/Gsqxc7ccLvOe3U4urJ5dPhz5r5FgiJdBG/KkPzmBwCTPEmcjMsE3zB+5IqDG2VhBgMdJ6q7LrvLEsMVHh4rznqSWa/TFe9uQ3lyK7lBgLIZNACvC6FkSyK20pThuma/wJ6aGD7ZAmfh5URs="
-
-matrix:
+jobs:
   include:
+    - stage: Build & Test
     - <<: *linux_gcc8
-      env: [ BUILD_TYPE=Release, C_COMPILER=gcc-8, CXX_COMPILER=g++-8, USE_SANITIZER=none, COVERITY_SCAN_PROJECT_NAME="$TRAVIS_REPO_SLUG", COVERITY_SCAN_BRANCH_PATTERN="coverity_scan", COVERITY_SCAN_NOTIFICATION_EMAIL="thijs.sassen@adlinktech.com", COVERITY_SCAN_BUILD_COMMAND="cmake --build .", COVERITY_SCAN_BUILD_COMMAND_PREPEND="cov-configure --comptype gcc --compiler gcc-8 --template"]
+      env: [ BUILD_TYPE=Release, C_COMPILER=gcc-8, CXX_COMPILER=g++-8, USE_SANITIZER=none]
     - <<: *linux_gcc8
       env: [ BUILD_TYPE=Debug, C_COMPILER=gcc-8, CXX_COMPILER=g++-8, USE_SANITIZER=none ]
     - <<: *linux_clang
@@ -59,7 +61,21 @@ matrix:
       env: [ ARCH=x86_64, BUILD_TYPE=Debug, GENERATOR="Visual Studio 15 2017" ]
     - <<: *windows_vs2017
       env: [ ARCH=x86_64, BUILD_TYPE=Release, GENERATOR="Visual Studio 15 2017" ]
-
+    - stage: Coverity
+      env:
+        - BUILD_TYPE=Release
+        - C_COMPILER=gcc-8
+        - CXX_COMPILER=g++-8
+        - USE_SANITIZER=none
+        - COVERITY_SCAN_PROJECT_NAME="$TRAVIS_REPO_SLUG"
+        - COVERITY_SCAN_BRANCH_PATTERN="coverity_scan"
+        - COVERITY_SCAN_NOTIFICATION_EMAIL="$(git log -1 $TRAVIS_COMMIT --pretty=\"%aE\")"
+        - COVERITY_SCAN_BUILD_COMMAND="cmake --build ."
+        - COVERITY_SCAN_BUILD_COMMAND_PREPEND="cov-configure --comptype gcc --compiler gcc-8 --template"
+        # Encrypted COVERITY_SCAN_TOKEN env variable
+        # Generated using `travis encrypt -r project_name/project_repo COVERITY_SCAN_TOKEN=xxx`
+        - secure: "LT9qq6l6IPkJkxqYS3WiF6NEGkpR+BdhoUnt5o5LQN52bIt7KBHhvqVJctgG7OsOhO8uq2nblFSxWg2WMwS0ho6Uv+W2eluvucNTh7H7d6bfmn4uSguTynTv+bzUWakHghMHgJmBfdHIQd6JbrKvfSIs/nFdJrwWJFxm8tVkb7ckwsfjENhVU7FuTCQuLfAQtqvjkA1a/YzDYqofRKEP6lQdOx/Ensp7seYhUBaUy6VVxDNVhW5LAU7It91GroWyJsmPa8ddVTqm9Ygij3+u4miLbvNZh05XGeXNZdSU/4ahu2oDUdVP0HVl7RZJzT1IfWdEgBujkFCiuKk915R+h6SXnNP77HULvbr84Tm3zycNadUWy3b1ANsPFkOdc3ONdT/hSsMwEcjCg+09aIKlR8weg8K088NxBnsxnifPyNBuz3tHO1I78GygbV4/BAMFpuKcHhppzXxbrxAnpfDhp3KiXH59e1soINH4eenMMVm7SlYneF7Vg+/gCcnuqNTHuWB6HbZrTXLzXIRvfJ41WZr0zNc/Gsqxc7ccLvOe3U4urJ5dPhz5r5FgiJdBG/KkPzmBwCTPEmcjMsE3zB+5IqDG2VhBgMdJ6q7LrvLEsMVHh4rznqSWa/TFe9uQ3lyK7lBgLIZNACvC6FkSyK20pThuma/wJ6aGD7ZAmfh5URs="
+    
 # Conan will automatically determine the best compiler for a given platform
 # based on educated guesses. The first check is based on the CC and CXX
 # environment variables, the second (on Windows) is to check if Microsoft
@@ -124,6 +140,7 @@ script:
           -DUSE_SANITIZER=${USE_SANITIZER}
           -DBUILD_TESTING=on
           -G "${GENERATOR}" ../src
+  # execute coverity build only if COVERITY_SCAN_PROJECT_NAME is set
   - if [[ -n $COVERITY_SCAN_PROJECT_NAME ]] ; then curl -s 'https://scan.coverity.com/scripts/travisci_build_coverity_scan.sh' | bash || true ; fi
   - cmake --build . --config ${BUILD_TYPE} --target install
   - CYCLONEDDS_URI='<CycloneDDS><DDSI2E><Internal><EnableExpensiveChecks>all</EnableExpensiveChecks></Internal></DDSI2E></CycloneDDS>' ctest -T test -C ${BUILD_TYPE}
