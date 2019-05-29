@@ -1,0 +1,41 @@
+steps:
+   - task: CMake@1
+     displayName: 'CMake configure core product'
+     inputs:
+       cmakeArgs: '-DCMAKE_BUILD_TYPE=$(BuildType)
+          -DCMAKE_INSTALL_PREFIX=$(Build.SourcesDirectory)/build/install
+          -DASAN=$(ASAN)
+          -DBUILD_TESTING=on
+          -G "$(GENERATOR)" ../src'
+   
+   - script: |
+      cmake --build . --config $(BuildType) --target install
+     workingDirectory: build
+     failOnStderr: true
+     displayName: 'Compile'
+   - script: |
+      ctest -T test -C $(BuildType)
+     workingDirectory: build
+     failOnStderr: true
+     displayName: 'Test'
+   - script: |
+      ci_addons ctest_junit_formatter "$(Build.SourcesDirectory)/build" > "$(Build.SourcesDirectory)/build/JUnitTestResults.xml"
+     displayName: 'Format CTest output in JUnit format'
+   - task: PublishTestResults@2
+     inputs:
+       testResultsFiles: "$(Build.SourcesDirectory)/build/JUnitTestResults.xml"
+       testRunTitle: 'CTest $(AGENT.JOBNAME)'
+     displayName: 'Publish test results'
+   - bash: |
+      if [ "$ASAN" != "none" ]; then
+        echo "##vso[task.setvariable variable=CMAKE_LINKER_FLAGS]-DCMAKE_LINKER_FLAGS=-fsanitize=$(ASAN)"
+        echo "##vso[task.setvariable variable=CMAKE_C_FLAGS]-DCMAKE_C_FLAGS=-fsanitize=$(ASAN)"
+      fi
+      export
+      mkdir install/share/CycloneDDS/examples/helloworld/build
+      cd install/share/CycloneDDS/examples/helloworld/build
+      cmake --no-warn-unused-cli -DCMAKE_BUILD_TYPE=$(BuildType) $CMAKE_C_FLAGS $CMAKE_LINKER_FLAGS -G "$(GENERATOR)" ..
+      cmake --build . --config $(BuildType)
+     workingDirectory: build
+     failOnStderr: true
+     displayName: 'Compile Example HelloWorld'
