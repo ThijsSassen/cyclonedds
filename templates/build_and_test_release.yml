@@ -1,0 +1,36 @@
+steps:
+   - task: CMake@1
+     displayName: 'CMake configure core product'
+     inputs:
+       cmakeArgs: '-DCMAKE_BUILD_TYPE=$(BuildType)
+          -DCMAKE_INSTALL_PREFIX=$(Build.SourcesDirectory)/build/install
+          -DASAN=$(ASAN)
+          -DBUILD_TESTING=on
+          -G "$(GENERATOR)" ../src'
+   
+   - script: |
+      cmake --build . --config $(BuildType) --target package
+     workingDirectory: build
+     failOnStderr: true
+     displayName: 'Compile'
+   - script: |
+      ctest -T test -C $(BuildType)
+     workingDirectory: build
+     failOnStderr: true
+     displayName: 'Test'
+   - script: |
+      ci_addons ctest_junit_formatter "$(Build.SourcesDirectory)/build" > "$(Build.SourcesDirectory)/build/JUnitTestResults.xml"
+     displayName: 'Format CTest output in JUnit format'
+   - task: PublishTestResults@2
+     inputs:
+       testResultsFiles: "$(Build.SourcesDirectory)/build/JUnitTestResults.xml"
+       testRunTitle: 'CTest $(AGENT.JOBNAME)'
+     displayName: 'Publish test results'
+   - task: CopyFiles@2
+     inputs:
+       sourceFolder: '$(Build.SourcesDirectory)'
+       contents: '/build/?(*.deb|*.msi|*.tar.gz|*.tar)'
+   - task: PublishBuildArtifacts@1
+     inputs:
+       pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+       artifactName: installer_$(AGENT.JOBNAME)

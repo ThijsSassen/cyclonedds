@@ -1,0 +1,113 @@
+resources:
+- repo: self
+
+# Only trigger manually
+trigger: none
+pr: none
+
+variables:
+  CYCLONEDDS_URI: "<CycloneDDS><Internal><EnableExpensiveChecks>all</EnableExpensiveChecks></Internal></CycloneDDS>"
+
+phases:
+- phase: Linux
+  queue:
+    name: 'Hosted Ubuntu 1604'
+    parallel: 2
+    matrix:
+      Clang Release:
+        CC: clang
+        CXX: clang++
+        BuildType: Release
+        ASAN: none
+        GENERATOR: "Unix Makefiles"
+
+      GCC-8 Release:
+        CC: gcc-8
+        CXX: g++-8
+        BuildType: Release
+        ASAN: none
+        GENERATOR: "Unix Makefiles"
+  steps:
+     - task: UsePythonVersion@0
+       inputs:
+         versionSpec: '3.7'
+     - script: |
+         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+         sudo apt-get update
+         sudo apt-get install -y gcc-8 g++-8
+         pip install --upgrade pip
+         pip install scikit-ci-addons
+         pip install conan --upgrade
+         conan profile new default --detect
+         conan remote add bincrafters https://api.bintray.com/conan/bincrafters/public-conan
+         mkdir build
+         cd build
+         conan install -b missing -s arch=x86_64 -s build_type=$(BuildType) ..
+       displayName: 'Install Build Dependencies'
+     - template: templates/build_and_test_release.yml
+    
+- phase: Windows
+  queue:
+    name: 'Hosted VS2017'
+    parallel: 2
+    matrix:
+      64-bit Release:
+        BuildType: Release
+        GENERATOR: "Visual Studio 15 2017 Win64"
+        ARCH: x86_64
+        ASAN: none
+
+      32-bit Release:
+        BuildType: Release
+        GENERATOR: "Visual Studio 15 2017"
+        ARCH: x86
+        ASAN: none    
+  steps:
+     - task: UsePythonVersion@0
+       inputs:
+         versionSpec: '3.7'
+     - script: |
+         pip install --upgrade pip --user
+         pip install conan --upgrade
+         pip install scikit-ci-addons
+         conan profile new default --detect
+         conan remote add bincrafters https://api.bintray.com/conan/bincrafters/public-conan
+         mkdir build
+         cd build
+         conan install -b missing -s arch=$(ARCH) -s build_type=$(BuildType) ..
+       displayName: 'Install Build Dependencies'
+     - template: templates/build_and_test_release.yml
+            
+- phase: macOS
+  queue:
+    name: 'Hosted macOS'
+    parallel: 1
+    matrix:
+      Release:
+        BuildType: Release
+        ASAN: none
+        GENERATOR: "Unix Makefiles"
+  steps:
+     - task: UsePythonVersion@0
+       inputs:
+         versionSpec: '3.7'
+     - script: |
+         sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate off
+         brew update
+         brew outdated pyenv || brew upgrade pyenv
+         brew install pyenv-virtualenv
+         if which pyenv > /dev/null; then
+             eval "$(pyenv init -)"
+         fi
+         pyenv virtualenv conan
+         pyenv rehash
+         pyenv activate conan
+         pip install conan --upgrade
+         pip install scikit-ci-addons
+         conan profile new default --detect
+         conan remote add bincrafters https://api.bintray.com/conan/bincrafters/public-conan
+         mkdir build
+         cd build
+         conan install -b missing -s arch=x86_64 -s build_type=$(BuildType) ..
+       displayName: 'Install Build Dependencies'
+     - template: templates/build_and_test_release.yml   
