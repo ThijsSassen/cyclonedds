@@ -39,3 +39,18 @@ steps:
      workingDirectory: build
      failOnStderr: true
      displayName: 'Compile Example HelloWorld'
+   - script: |
+      cmake --build . --config $(BuildType) --target package
+     workingDirectory: build
+     failOnStderr: true
+     displayName: 'Create installer'
+   - task: CopyFiles@2
+     inputs:
+       sourceFolder: '$(Build.SourcesDirectory)'
+       contents: '/build/?(*.deb|*.msi|*.tar.gz|*.tar)'
+     displayName: 'Copy installer'
+   - task: PublishBuildArtifacts@1
+     inputs:
+       pathtoPublish: '$(Build.ArtifactStagingDirectory)'
+       artifactName: installer_$(AGENT.JOBNAME)
+     displayName: 'Publish installer'
