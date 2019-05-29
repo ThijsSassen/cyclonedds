@@ -47,6 +47,7 @@ steps:
    - task: CopyFiles@2
      inputs:
        sourceFolder: '$(Build.SourcesDirectory)'
+       targetFolder: '$(Build.ArtifactStagingDirectory)'
        contents: '/build/?(*.deb|*.msi|*.tar.gz|*.tar)'
      displayName: 'Copy installer'
    - task: PublishBuildArtifacts@1
